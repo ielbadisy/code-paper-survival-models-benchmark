@@ -1,0 +1,65 @@
+"dataset","hazard","learner","params","ibs","secs","error"
+"pbc","dec","rsf","ntree=500; mtry=3; nodesize=15",0.157855819762865,48,NA
+"pbc","dec","ranger","num.trees=300; mtry=2; min.node.size=3",0.166382701668968,50,NA
+"pbc","dec","cforest","ntree=300; mtry=3; mincriterion=0; fraction=0.632",0.158131347414047,77,NA
+"pbc","dec","survsvm","gamma.mu=1; kernel=lin_kernel",0.153702755104356,15,NA
+"pbc","const","rsf","ntree=500; mtry=3; nodesize=15",0.156121769158195,47,NA
+"pbc","const","ranger","num.trees=100; mtry=1; min.node.size=3",0.163251303071308,46,NA
+"pbc","const","cforest","ntree=300; mtry=3; mincriterion=0; fraction=0.632",0.155257857196114,78,NA
+"pbc","const","survsvm","gamma.mu=1; kernel=lin_kernel",0.14966399544431,14,NA
+"pbc","inc","rsf","ntree=500; mtry=3; nodesize=15",0.142894869929292,47,NA
+"pbc","inc","ranger","num.trees=100; mtry=1; min.node.size=3",0.149808270506471,47,NA
+"pbc","inc","cforest","ntree=300; mtry=3; mincriterion=0; fraction=0.632",0.141905625650991,77,NA
+"pbc","inc","survsvm","gamma.mu=1; kernel=lin_kernel",0.13520847206643,13,NA
+"pbc","nph","rsf","ntree=500; mtry=3; nodesize=15",0.134204803533819,47,NA
+"pbc","nph","ranger","num.trees=100; mtry=1; min.node.size=3",0.139888847210701,45,NA
+"pbc","nph","cforest","ntree=300; mtry=3; mincriterion=0; fraction=0.632",0.131141855716465,76,NA
+"pbc","nph","survsvm","gamma.mu=0.1; kernel=lin_kernel",0.130393335051814,13,NA
+"prostate","dec","rsf","ntree=500; mtry=3; nodesize=15",0.198418750594858,46,NA
+"prostate","dec","ranger","num.trees=100; mtry=1; min.node.size=3",0.20296657902556,37,NA
+"prostate","dec","cforest","ntree=300; mtry=3; mincriterion=0; fraction=0.632",0.197822007189114,74,NA
+"prostate","dec","survsvm","gamma.mu=1; kernel=add_kernel",0.192691419012763,13,NA
+"prostate","const","rsf","ntree=200; mtry=2; nodesize=15",0.19224549402815,42,NA
+"prostate","const","ranger","num.trees=100; mtry=1; min.node.size=3",0.195037580293355,35,NA
+"prostate","const","cforest","ntree=100; mtry=3; mincriterion=0; fraction=0.5",0.190808639658149,71,NA
+"prostate","const","survsvm","gamma.mu=1; kernel=lin_kernel",0.187744469027969,12,NA
+"prostate","inc","rsf","ntree=500; mtry=2; nodesize=15",0.176704327348827,44,NA
+"prostate","inc","ranger","num.trees=100; mtry=1; min.node.size=3",0.180709412353226,34,NA
+"prostate","inc","cforest","ntree=300; mtry=3; mincriterion=0; fraction=0.632",0.175439285017045,76,NA
+"prostate","inc","survsvm","gamma.mu=1; kernel=add_kernel",0.172790660219789,12,NA
+"prostate","nph","rsf","ntree=200; mtry=1; nodesize=5",0.158266568441473,42,NA
+"prostate","nph","ranger","num.trees=100; mtry=1; min.node.size=3",0.15899388752062,34,NA
+"prostate","nph","cforest","ntree=300; mtry=3; mincriterion=0; fraction=0.632",0.154772664417532,72,NA
+"prostate","nph","survsvm","gamma.mu=0.1; kernel=lin_kernel",0.158007879334732,11,NA
+"pbc","dec","glmnet","alpha=0",0.15320943625864,15,NA
+"pbc","dec","coxboost","stepno=50; penalty=200; criterion=pscore; stepsize.factor=1",0.153828144050216,31,NA
+"pbc","dec","blackboost","mstop=200; nu=0.1; maxdepth=2",0.156947397058891,88,NA
+"pbc","dec","orsf","n_tree=300; mtry=3; split_min_events=10",0.158191136511086,4,NA
+"pbc","const","glmnet","alpha=0",0.149191624398417,14,NA
+"pbc","const","coxboost","stepno=50; penalty=200; criterion=pscore; stepsize.factor=1",0.149355274512558,29,NA
+"pbc","const","blackboost","mstop=200; nu=0.05; maxdepth=3",0.153208283729481,88,NA
+"pbc","const","orsf","n_tree=300; mtry=2; split_min_events=10",0.153315968203844,4,NA
+"pbc","inc","glmnet","alpha=0",0.134763994226655,14,NA
+"pbc","inc","coxboost","stepno=50; penalty=100; criterion=pscore; stepsize.factor=1",0.134887999566625,29,NA
+"pbc","inc","blackboost","mstop=200; nu=0.05; maxdepth=3",0.137626645982947,84,NA
+"pbc","inc","orsf","n_tree=300; mtry=2; split_min_events=5",0.141308727006839,4,NA
+"pbc","nph","glmnet","alpha=0",0.130197218835462,14,NA
+"pbc","nph","coxboost","stepno=50; penalty=200; criterion=pscore; stepsize.factor=1",0.130292320452137,27,NA
+"pbc","nph","blackboost","mstop=200; nu=0.1; maxdepth=2",0.127591485556773,75,NA
+"pbc","nph","orsf","n_tree=300; mtry=3; split_min_events=10",0.131512154993777,4,NA
+"prostate","dec","glmnet","alpha=0",0.191979381691497,10,NA
+"prostate","dec","coxboost","stepno=100; penalty=200; criterion=pscore; stepsize.factor=1",0.192716328288893,29,NA
+"prostate","dec","blackboost","mstop=200; nu=0.05; maxdepth=2",0.193664144412648,63,NA
+"prostate","dec","orsf","n_tree=100; mtry=2; split_min_events=10",0.199444693096308,4,NA
+"prostate","const","glmnet","alpha=0",0.187949819429166,11,NA
+"prostate","const","coxboost","stepno=50; penalty=200; criterion=pscore; stepsize.factor=1",0.188248990282738,26,NA
+"prostate","const","blackboost","mstop=200; nu=0.05; maxdepth=2",0.190825949225264,62,NA
+"prostate","const","orsf","n_tree=100; mtry=2; split_min_events=10",0.191235602267802,4,NA
+"prostate","inc","glmnet","alpha=0",0.172059606030796,8,NA
+"prostate","inc","coxboost","stepno=100; penalty=100; criterion=pscore; stepsize.factor=1",0.172720533110501,27,NA
+"prostate","inc","blackboost","mstop=200; nu=0.1; maxdepth=2",0.173042995666915,57,NA
+"prostate","inc","orsf","n_tree=100; mtry=2; split_min_events=10",0.176935767987591,4,NA
+"prostate","nph","glmnet","alpha=0",0.160168089070397,7,NA
+"prostate","nph","coxboost","stepno=50; penalty=100; criterion=pscore; stepsize.factor=1",0.16034280407099,24,NA
+"prostate","nph","blackboost","mstop=50; nu=0.1; maxdepth=3",0.159012619750974,54,NA
+"prostate","nph","orsf","n_tree=300; mtry=2; split_min_events=10",0.156883602373074,4,NA

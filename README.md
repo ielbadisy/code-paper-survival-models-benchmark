@@ -14,13 +14,15 @@ trials: PBC (`survival::pbc`) and VACURG advanced prostate cancer
 - `armA-rct/sim-res.R` summaries (means, MCSE, ranks, failure rates, timing)
 - `armA-rct/example-res.R` real-data illustration
 
-## Launch
+## Launch (copy-paste)
+
+On the workstation:
 
 ```bash
 git clone git@github.com:ielbadisy/code-paper-survival-models-benchmark.git
 cd code-paper-survival-models-benchmark
-Rscript install-deps.R          # once; check that every line says "ok"
-./run.sh 30                     # cores; default is nproc - 2
+Rscript install-deps.R     # once; each line should say "ok"
+./run.sh 30                # number of cores; default is all minus 2
 tail -c 300 armA-rct/results/sim-run.log
 ```
 

@@ -2,8 +2,4 @@
 .Rhistory
 .RData
 .Rproj.user/
-armA-rct/results/sim_raw_*
-armA-rct/results/sim_summary_*
-armA-rct/results/sim_fail_rates_*
-armA-rct/results/sim_mean_rank_*
-armA-rct/results/timing_*
+*.png

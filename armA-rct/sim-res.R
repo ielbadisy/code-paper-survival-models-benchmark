@@ -1,18 +1,19 @@
 # armA-rct/sim-res.R -- summarise Arm A raw results: mean and MCSE per
 # cell x learner x metric, per-cell ranks, mean ranks, failure rates.
-# Run from armA-rct/:  Rscript sim-res.R <tag>   (tag: smoke | 200reps ...)
+# Run from armA-rct/:  Rscript sim-res.R <tag>   (tag: v2_90reps, v2_3reps_v2_3reps ...)
 
 args <- commandArgs(TRUE)
-tag <- if (length(args)) args[1] else "200reps"
-raw <- read.csv(sprintf("results/sim_raw_%s.csv", tag), stringsAsFactors = FALSE)
+tag <- if (length(args)) args[1] else "v2_90reps"
+raw <- readRDS(sprintf("results/sim_raw_%s.rds", tag))
 cell <- c("dataset", "hazard", "beta_trt", "n", "cens", "stress")
 
 # lower is better for these, higher for the rest
-lower_better <- c("ibs", "iae", "ise", "brier", "ece", "mae_true", "mae_true_tstar",
+lower_better <- c("ibs", "iae", "ise", "brier", "ece", "dwrange", "mae_true", "mae_true_tstar",
                   "benefit_rmse", "policy_regret", "secs")
 
+# median kept because benefit_cal_slope is heavy-tailed
 agg <- aggregate(value ~ ., data = raw[c(cell, "learner", "metric", "value")],
-                 FUN = function(v) c(mean = mean(v), median = stats::median(v),  # median: benefit_cal_slope is heavy-tailed
+                 FUN = function(v) c(mean = mean(v), median = stats::median(v),
                                      mcse = stats::sd(v) / sqrt(length(v)), reps = length(v)))
 summ <- cbind(agg[setdiff(names(agg), "value")], as.data.frame(agg$value))
 fails <- aggregate(value ~ ., data = transform(raw[raw$metric == "ibs", c(cell, "learner", "value")],
@@ -20,7 +21,9 @@ fails <- aggregate(value ~ ., data = transform(raw[raw$metric == "ibs", c(cell, 
 names(fails)[names(fails) == "value"] <- "fail_rate"
 
 # per-cell rank of each learner on each metric (1 = best)
-summ$rank <- ave(ifelse(summ$metric %in% lower_better, summ$mean, -summ$mean),
+# calibration slopes: distance from 1
+slope <- grepl("slope", summ$metric)
+summ$rank <- ave(ifelse(slope, abs(summ$median - 1), ifelse(summ$metric %in% lower_better, summ$mean, -summ$mean)),
                  interaction(summ[c(cell, "metric")], drop = TRUE),
                  FUN = function(x) rank(x, na.last = "keep", ties.method = "average"))
 mean_rank <- aggregate(rank ~ learner + metric, data = summ, FUN = mean)
@@ -34,4 +37,3 @@ write.csv(mean_rank, sprintf("results/sim_mean_rank_%s.csv", tag), row.names = F
 # timing per learner (seconds per fit + 3 predictions), averaged over cells
 timing <- aggregate(mean ~ learner + n, data = summ[summ$metric == "secs", ], FUN = mean)
 write.csv(timing, sprintf("results/timing_%s.csv", tag), row.names = FALSE)
-print(timing[order(-timing$mean), ], row.names = FALSE)

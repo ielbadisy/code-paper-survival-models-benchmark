@@ -1,49 +1,78 @@
-# code-paper-survival-models-benchmark
+# Code and results: survival learners in randomised trial data
 
-Simulation code for a trial-shaped benchmark of survival learners (survalis),
-with prediction metrics, calibration against the true survival function, and
-individual treatment-benefit metrics. The DGPs are built on two reference
-trials: PBC (`survival::pbc`) and VACURG advanced prostate cancer
-(`data-ref/adv_prostate_ca/`).
+Code and per-replicate results for "Beyond Cox versus random forests: a neutral comparison of
+survival learners for patient-specific prediction and treatment benefit in randomised trial data"
+(Imad El Badisy). Every table and figure of the paper and of Supporting Information S1 is produced
+from the files below.
+The same files are submitted as Supporting Information S2 of the paper.
 
 ## Layout
 
-- `R/` DGPs (`dgp-rct.R`, `dgp-rct-stress.R`), metrics (`sim-core.R`, `benefit.R`)
-- `armA-rct/tune-run.R` tunes each learner once per dataset x hazard (output already in `results/tuned_armA.rds`)
-- `armA-rct/sim-run.R` full run: 156 cells x 200 replicates x 15 learners
-- `armA-rct/sim-res.R` summaries (means, MCSE, ranks, failure rates, timing)
-- `armA-rct/example-res.R` real-data illustration
+- `R/`: data-generating mechanisms (`dgp-rct.R`, `dgp-rct-stress.R`), performance measures
+  (`sim-core.R`) and benefit measures (`benefit.R`).
+- `data-ref/adv_prostate_ca/`: the VACURG advanced prostate cancer trial (Byar and Green 1980).
+  The PBC trial is taken from the R package survival.
+- `armA-rct/`: the simulation study.
+  - `common.R`: design, learners and scoring shared by tuning and evaluation.
+  - `tune-run.R`: tuning on replicates 1 to 10 (seed 1027). Output `results/tuned_v2.rds` and
+    `results/tune_raw_v2.rds`.
+  - `sim-run.R`: evaluation on 90 replicates per scenario (seed 2028). Output
+    `results/sim_raw_v2_90reps.rds` (one row per scenario, replicate, learner and measure).
+  - `sim-res.R`: means, Monte Carlo standard errors, ranks, failure rates and timing.
+  - `explore-res.R`: paired differences from Cox PH, metric selection, prediction against benefit,
+    policy value and true benefit spread (`results/analysis_v2_90reps/`).
+  - `fig-res.R`: Tables 2 and 3 and Figures 1 to 5 (`results/figures_v2_90reps/`) on the 24 core scenarios (n = 200, 30% censoring), plus full-design tables for S1.
+  - `fig-extra.R`: heatmap and nested loop plot of Supporting Information S1.
+  - `decomp-run.R` and `decomp-res.R`: decomposition of benefit error into prediction error and
+    cross-arm correlation (30 replicates of the 24 base scenarios with n = 200, seed 3029).
+  - `dca-run.R` and `dca-res.R`: treatment decision curves against the truth (30 replicates of the
+    same 24 scenarios, seed 4031) and their figure in Supporting Information S1.
+- `armB-real/`: the ACTG 175 example. `actg175-run.R` tunes and evaluates on 2:1 splits,
+  `actg175-res.R` makes Table 4 and Figures 6 to 8, and `actg175-null.R` scores a Kaplan-Meier curve
+  without covariates on the same splits (last row of Table 4). `actg175-dca.R` computes the treatment and
+  prognostic decision curves on the same splits, and `actg175-dca-res.R` draws Figure 9 and its
+  supplementary figure. The data are taken from the R package BART.
 
-## Launch (copy-paste)
+## Reproduce
 
-On the workstation:
+Install the packages once:
 
 ```bash
-git clone git@github.com:ielbadisy/code-paper-survival-models-benchmark.git
-cd code-paper-survival-models-benchmark
-Rscript install-deps.R     # once; each line should say "ok"
-./run.sh 30                # number of cores; default is all minus 2
-tail -c 300 armA-rct/results/sim-run.log
+Rscript install-deps.R
 ```
 
-`run.sh` pins `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS` and `MKL_NUM_THREADS`
-to 1 before R starts. Do not launch `sim-run.R` without these.
-
-Cost: about 24 CPU seconds per cell x replicate, so about 210 CPU hours in
-total for 31 200 cell-replicates. The run checkpoints every 5 replicates to
-`armA-rct/results/checkpoint_200reps.rds`. If it stops, run `./run.sh` again
-and it resumes. The committed checkpoint already holds replicates 1 to 70
-(about 35%), so a fresh clone starts at replicate 71.
-
-## When it finishes
+Remake all summaries, tables and figures from the stored raw results (a few minutes):
 
 ```bash
 cd armA-rct
-Rscript sim-res.R 200reps
-Rscript example-res.R
+Rscript sim-res.R v2_90reps
+Rscript explore-res.R v2_90reps
+Rscript fig-res.R v2_90reps
+Rscript fig-extra.R v2_90reps
+cd ../armB-real
+Rscript actg175-res.R 50
+Rscript actg175-null.R
+Rscript actg175-dca-res.R
+cd ../armA-rct
+Rscript dca-res.R
 ```
 
-Outputs land in `armA-rct/results/` (`sim_raw_200reps.{rds,csv}`,
-`sim_summary_200reps.csv`, `sim_mean_rank_200reps.csv`,
-`sim_fail_rates_200reps.csv`, `timing_200reps.csv`). Report
-`benefit_cal_slope` by its median (heavy-tailed).
+Rerun the experiments from scratch. Pin the BLAS threads to 1 so that parallel workers do not
+oversubscribe the cores:
+
+```bash
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+cd armA-rct
+Rscript tune-run.R <cores>          # tuning, under 10 CPU hours
+Rscript sim-run.R 90 <cores>        # evaluation, about 60 CPU hours
+cd ../armB-real
+Rscript actg175-run.R tune <cores>
+Rscript actg175-run.R eval <cores> 50
+Rscript actg175-dca.R <cores>
+cd ../armA-rct
+Rscript decomp-run.R 30 <cores>
+Rscript dca-run.R 30 <cores>
+```
+
+All runs use fixed seeds through mcstatsim and give the same results on the same package versions.
+The analyses used R 4.5.1 on Linux.

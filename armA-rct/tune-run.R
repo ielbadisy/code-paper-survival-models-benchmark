@@ -1,72 +1,61 @@
-# armA-rct/tune-run.R -- tune each tunable Arm A learner ONCE per dataset x
-# hazard (PROTOCOL.md Section 10, decided 2026-11-15), then freeze the
-# settings for every replicate and cell of that dataset x hazard.
-# Tuning trial: N = 1000, beta_trt = -0.4, 30% censoring, no stressor.
-# Budget: survalis tune(), 3-fold CV, IBS, at most MAX_CONFIGS configurations
-# of the learner's built-in grid. Same budget for every learner.
-# glmnet is tuned with trt unpenalised (as in sim-run.R); coxboost is tuned
-# through survalis (trt penalised) and the chosen stepno/penalty are reused
-# by the unpenalised-trt fit in sim-run.R.
-# Untuned (no built-in grid): coxph, cox_spec, rpsurv, rpsurv_tve, fastgbm, nbsurv.
-# flexsurvreg stays at its Weibull default: its built-in tuner errors when one
-# candidate distribution fails to converge, and the distribution is a model
-# choice rather than a hyperparameter.
-# Run from armA-rct/:  Rscript tune-run.R <cores>
+# armA-rct/tune-run.R -- learner tuning for the v2 benchmark (replicates 1-10).
+# Per dataset x hazard x n (24 groups), 10 generated training trials (beta
+# -0.4, 30% censoring, no stress). Each config in HP is fit on the training
+# trial and scored by IBS on an independent validation trial (N = 500) from
+# the same DGP; the config with the best mean IBS over the 10 is frozen.
+# Output: results/tuned_v2.rds  TUNED[[dataset]][[hazard]][[n]][[learner]]
+#         results/tune_raw_v2.rds (every config x replicate)
+# Run from armA-rct/:  OMP_NUM_THREADS=1 Rscript tune-run.R <cores> [reps]
 
-suppressMessages({ library(survalis); library(survival) })
-source("../R/dgp-rct-stress.R")
+source("common.R")
 
-MAX_CONFIGS <- 8L
-N_TUNE <- 1000L
-TUNABLE <- c("glmnet", "coxboost", "blackboost", "rsf", "ranger",
-             "orsf", "cforest", "survsvm")
-metric_ids <- listmetrics()$metric
+xg <- function(...) { g <- expand.grid(..., stringsAsFactors = FALSE, KEEP.OUT.ATTRS = FALSE)
+  lapply(seq_len(nrow(g)), function(i) as.list(g[i, , drop = FALSE])) }
+HP <- list(
+  glmnet = xg(alpha = c(0, 0.5, 1), s = c("lambda.min", "lambda.1se")),
+  coxboost = xg(stepno = c(25, 50, 100, 200), pmult = c(4.5, 9)),
+  nbsurv = xg(cov_structure = c("diagonal", "full"), time_smooth = c(FALSE, TRUE)),
+  fastgbm = xg(ntrees = c(50, 100, 200, 400), learning_rate = 0.03, max_depth = c(1, 2)),
+  densemlp = with(expand.grid(h = 1:2, nb = c(5, 10), dr = c(0.1, 0.3)),
+    Map(function(h, nb, dr) list(hidden_units = list(16, c(32, 16))[[h]], n_bins = nb, dropout = dr), h, nb, dr)),
+  bart = xg(K = c(5, 10), power = c(1, 2), base = c(0.75, 0.95)),
+  xgboost = xg(nrounds = c(50, 150), max_depth = c(2, 4), eta = c(0.05, 0.2)),
+  rsf = xg(mtry = c(2, 4), nodesize = c(5, 15, 30)),
+  orsf = xg(mtry = c(2, 4), leaf_min_obs = c(5, 15, 30)),
+  blackboost = xg(mstop = c(50, 100, 200), maxdepth = c(1, 2)))
 
-capped_grid <- function(learner) {
-  f <- get(paste0("tune_", learner), envir = asNamespace("survalis"))
-  g <- tryCatch(eval(formals(f)$param_grid, envir = environment(f)), error = function(e) NULL)
-  if (!is.data.frame(g) || nrow(g) <= MAX_CONFIGS) return(NULL)  # built-in grid as is
-  g[unique(round(seq(1, nrow(g), length.out = MAX_CONFIGS))), , drop = FALSE]
-}
+ibs_of <- function(S, y, times) evaluate(S, y = y, times = times, metrics = "ibs")$summary$mean
 
-tune_task <- function(dataset, hazard, learner) {
-  ref <- load_reference(dataset)
-  set.seed(2026)
-  b <- calibrate_stress_censoring(ref, -0.4, hazard, "none", 0.3, n_pilot = 5e4)
-  d <- simulate_stress(ref, N_TUNE, -0.4, hazard, "none", b); attr(d, "truth") <- NULL
-  times <- unname(quantile(d$time[d$status == 1], seq(0.1, 0.9, 0.1)))
-  args <- list(Surv(time, status) ~ ., d, model = learner, grid = capped_grid(learner),
-               times = times, resampling = cv(v = 3, seed = 1), metric = "ibs")
-  if (learner == "glmnet") args$penalty.factor <- as.numeric(setdiff(names(d), c("time", "status")) != "trt")
-  t0 <- proc.time()[["elapsed"]]
-  res <- tryCatch(do.call(tune, args), error = function(e) conditionMessage(e))
-  secs <- proc.time()[["elapsed"]] - t0
-  if (is.character(res)) return(list(dataset = dataset, hazard = hazard, learner = learner,
-                                     params = NULL, secs = secs, error = res))
-  best <- res$best
-  params <- as.list(best[setdiff(names(best), c(metric_ids, "failed"))])
-  list(dataset = dataset, hazard = hazard, learner = learner, params = params,
-       ibs = best$ibs, secs = secs, error = NA)
+tune_one <- function(dataset, hazard, n, beta_trt, cens, stress, cens_b) {
+  ref <- REFS[[dataset]]; times <- TIMES[[cell_key(dataset, hazard, beta_trt, stress, cens)]]
+  train <- simulate_stress(ref, n, beta_trt, hazard, stress, cens_b); attr(train, "truth") <- NULL
+  val <- simulate_stress(ref, N_TEST, beta_trt, hazard, stress, cens_b); attr(val, "truth") <- NULL
+  y <- Surv(val$time, val$status)
+  do.call(rbind, lapply(names(HP), function(l) do.call(rbind, lapply(seq_along(HP[[l]]), function(k)
+    data.frame(learner = l, config = k, ibs = tryCatch({
+      S <- predict_any(fit_any(l, train, ref, HP[[l]][[k]]), val, times)
+      if (anyNA(S)) NA_real_ else ibs_of(S, y, times)
+    }, error = function(e) NA_real_))))))
 }
 
 if (sys.nframe() == 0L) {
-  args <- commandArgs(TRUE)
-  cores <- if (length(args)) as.integer(args[1]) else 2L
-  tasks <- expand.grid(learner = TUNABLE, hazard = c("dec", "const", "inc", "nph"),
-                       dataset = c("pbc", "prostate"), stringsAsFactors = FALSE)
-  # slow learners first so the pool drains evenly
-  tasks <- tasks[order(!tasks$learner %in% c("cforest", "survsvm", "rsf", "ranger")), ]
-  out <- parallel::mclapply(seq_len(nrow(tasks)), function(i)
-    with(tasks[i, ], tune_task(dataset, hazard, learner)),
-    mc.cores = cores, mc.preschedule = FALSE)
+  a <- commandArgs(TRUE)
+  cores <- if (length(a) >= 1) as.integer(a[1]) else 2L
+  reps <- if (length(a) >= 2) as.integer(a[2]) else 10L
+  tg <- unique(GRID[GRID$stress == "none", c("dataset", "hazard", "n")])
+  tg <- prepare_grid(transform(tg, beta_trt = -0.4, cens = 0.3, stress = "none"))
+  rownames(tg) <- NULL
+  TIMES <- grid_times(tg)
+  tag <- if (reps == 10L) "v2" else sprintf("v2_%dreps", reps)
+  raw <- runsim(n = reps, grid_params = tg, sim_func = tune_one, seed = 1027, num_cores = cores,
+                show_progress = FALSE, backend = "fork", on_error = "warn",
+                save_path = sprintf("results/tune_checkpoint_%s.rds", tag), checkpoint_every = 1L)
+  agg <- aggregate(ibs ~ dataset + hazard + n + learner + config, raw, mean)
+  best <- do.call(rbind, lapply(split(agg, agg[c("dataset", "hazard", "n", "learner")], drop = TRUE),
+                                function(d) d[which.min(d$ibs), ]))
   tuned <- list()
-  for (o in out) tuned[[o$dataset]][[o$hazard]][[o$learner]] <- o$params
-  dir.create("results", showWarnings = FALSE)
-  saveRDS(tuned, "results/tuned_armA.rds")
-  log <- do.call(rbind, lapply(out, function(o) data.frame(
-    dataset = o$dataset, hazard = o$hazard, learner = o$learner,
-    params = if (is.null(o$params)) NA else paste(names(o$params), unlist(o$params), sep = "=", collapse = "; "),
-    ibs = if (is.null(o$ibs)) NA else o$ibs, secs = round(o$secs), error = o$error)))
-  write.csv(log, "results/tuned_armA.csv", row.names = FALSE)
-  print(log, row.names = FALSE)
+  for (i in seq_len(nrow(best))) with(best[i, ],
+    tuned[[dataset]][[hazard]][[as.character(n)]][[learner]] <<- HP[[learner]][[config]])
+  saveRDS(list(raw = raw, best = best, hp = HP, versions = pkg_versions()), sprintf("results/tune_raw_%s.rds", tag))
+  saveRDS(tuned, sprintf("results/tuned_%s.rds", tag))
 }

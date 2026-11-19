@@ -1,8 +1,8 @@
 # armA-rct/common.R -- design, learners and scoring shared by tune-run.R and
-# sim-run.R (v2, 2026-11-17). Sourced from armA-rct/.
+# sim-run.R. Sourced from armA-rct/.
 
 suppressMessages({ library(survalis); library(survival); library(mcstatsim) })
-source("../R/dgp-rct-stress.R"); source("../R/benefit.R"); source("../R/sim-core.R")
+source("../R/dgp.R"); source("../R/metrics.R")
 options(rf.cores = 1L, mc.cores = 1L)
 
 N_TEST <- 500L
@@ -39,13 +39,15 @@ eval_times <- function(ref, beta_trt, hazard, stress, cens_b) {
   unname(quantile(T[T <= tau], seq(0.1, 0.9, 0.1)))
 }
 prepare_grid <- function(g) {
-  g$cens_b <- mapply(function(ds, hz, bt, st, cs) calibrate_stress_censoring(REFS[[ds]], bt, hz, st, cs, n_pilot = 5e4),
+  g$cens_b <- mapply(function(ds, hz, bt, st, cs) calibrate_stress_censoring(REFS[[ds]], bt, hz, st, cs,
+    n_pilot = 5e4),
                      g$dataset, g$hazard, g$beta_trt, g$stress, g$cens)
   g
 }
 grid_times <- function(g) {
   k <- unique(g[c("dataset", "hazard", "beta_trt", "stress", "cens", "cens_b")])
-  setNames(lapply(seq_len(nrow(k)), function(i) with(k[i, ], eval_times(REFS[[dataset]], beta_trt, hazard, stress, cens_b))),
+  setNames(lapply(seq_len(nrow(k)), function(i) with(k[i, ], eval_times(REFS[[dataset]], beta_trt, hazard,
+    stress, cens_b))),
            with(k, cell_key(dataset, hazard, beta_trt, stress, cens)))
 }
 

@@ -8,11 +8,13 @@ The same files are submitted as Supporting Information S2 of the paper.
 
 ## Layout
 
-- `R/`: data-generating mechanisms (`dgp-rct.R`, `dgp-rct-stress.R`), performance measures
-  (`sim-core.R`) and benefit measures (`benefit.R`).
+- `R/`: data-generating mechanisms (`dgp.R`), performance and benefit measures (`metrics.R`) and
+  shared helpers for the tables and figures (`res-utils.R`).
 - `data-ref/adv_prostate_ca/`: the VACURG advanced prostate cancer trial (Byar and Green 1980).
   The PBC trial is taken from the R package survival.
 - `armA-rct/`: the simulation study.
+  - `dgp-check.R`: large-sample checks of the data-generating mechanisms (censoring share, true
+    survival against latent times, Kaplan-Meier bias). Output `results/dgp_check.csv`.
   - `common.R`: design, learners and scoring shared by tuning and evaluation.
   - `tune-run.R`: tuning on replicates 1 to 10 (seed 1027). Output `results/tuned_v2.rds` and
     `results/tune_raw_v2.rds`.
@@ -21,7 +23,8 @@ The same files are submitted as Supporting Information S2 of the paper.
   - `sim-res.R`: means, Monte Carlo standard errors, ranks, failure rates and timing.
   - `explore-res.R`: paired differences from Cox PH, metric selection, prediction against benefit,
     policy value and true benefit spread (`results/analysis_v2_90reps/`).
-  - `fig-res.R`: Tables 2 and 3 and Figures 1 to 5 (`results/figures_v2_90reps/`) on the 24 core scenarios (n = 200, 30% censoring), plus full-design tables for S1.
+  - `fig-res.R`: Tables 2 and 3 and Figures 1 to 5 (`results/figures_v2_90reps/`) on the 24 core
+    scenarios (n = 200, 30% censoring), plus full-design tables for S1.
   - `fig-extra.R`: heatmap and nested loop plot of Supporting Information S1.
   - `decomp-run.R` and `decomp-res.R`: decomposition of benefit error into prediction error and
     cross-arm correlation (30 replicates of the 24 base scenarios with n = 200, seed 3029).
@@ -32,6 +35,8 @@ The same files are submitted as Supporting Information S2 of the paper.
   without covariates on the same splits (last row of Table 4). `actg175-dca.R` computes the treatment and
   prognostic decision curves on the same splits, and `actg175-dca-res.R` draws Figure 9 and its
   supplementary figure. The data are taken from the R package BART.
+- `paper-numbers.R`: every number quoted in the text of the paper and of Supporting Information S1,
+  recomputed from the stored results (`results/paper_numbers.csv`). Run from the repository root.
 
 ## Reproduce
 
@@ -55,6 +60,8 @@ Rscript actg175-null.R
 Rscript actg175-dca-res.R
 cd ../armA-rct
 Rscript dca-res.R
+cd ..
+Rscript paper-numbers.R
 ```
 
 Rerun the experiments from scratch. Pin the BLAS threads to 1 so that parallel workers do not
@@ -72,6 +79,7 @@ Rscript actg175-dca.R <cores>
 cd ../armA-rct
 Rscript decomp-run.R 30 <cores>
 Rscript dca-run.R 30 <cores>
+Rscript dgp-check.R
 ```
 
 All runs use fixed seeds through mcstatsim and give the same results on the same package versions.

@@ -11,7 +11,8 @@ DELTA <- seq(0, 0.2, 0.01); PT <- seq(0.05, 0.5, 0.05)
 dca_score <- function(S, bhat, test) {
   y <- Surv(test$time, test$status); s1 <- km(test[test$trt == 1, ]); s0 <- km(test[test$trt == 0, ])
   g <- sapply(DELTA, function(dl) val(test, bhat > dl) - dl * mean(bhat > dl) - max(s1 - dl, s0))
-  nb <- survalis:::dca_survmat(y, S, TSTAR, PT)$curve  # not exported; same IPCW net benefit as interpret(method = "dca")
+  # not exported; same IPCW net benefit as interpret(method = "dca")
+  nb <- survalis:::dca_survmat(y, S, TSTAR, PT)$curve
   c(setNames(g, sprintf("gain_%02d", round(100 * DELTA))), setNames(nb$model, sprintf("nb_%02d", round(100 * PT))),
     setNames(nb$treat_all, sprintf("nball_%02d", round(100 * PT))), treat_share = mean(bhat > 0))
 }

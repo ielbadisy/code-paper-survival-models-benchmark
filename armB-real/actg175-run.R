@@ -17,14 +17,16 @@ COVS <- c("age", "wtkg", "hemo", "homo", "drugs", "karnof", "oprior", "z30", "pr
 TSTAR <- 2
 LEARNERS[LEARNERS == "cox_spec"] <- "cox_int"   # no oracle in real data: Cox with every trt interaction
 data(ACTG175, package = "BART")
-D <- with(ACTG175[ACTG175$arms %in% 0:1, ], data.frame(time = days / 365.25, status = cens, trt = as.integer(arms == 1),
+D <- with(ACTG175[ACTG175$arms %in% 0:1, ], data.frame(time = days / 365.25, status = cens,
+                                                       trt = as.integer(arms == 1),
                                                        ACTG175[ACTG175$arms %in% 0:1, COVS]))
 REF <- list(X = D[COVS], inter = setNames(vector("list", length(COVS)), COVS))
 tau <- unname(quantile(D$time, 0.9))
 TIMES <- sort(unique(c(unname(quantile(D$time[D$status == 1 & D$time <= tau], seq(0.1, 0.9, 0.1))), TSTAR)))
 K <- match(TSTAR, TIMES)
 
-split3 <- function() { i <- unlist(lapply(split(seq_len(nrow(D)), D$trt), function(j) sample(j, round(length(j) / 3))))
+split3 <- function() { i <- unlist(lapply(split(seq_len(nrow(D)), D$trt), function(j) sample(j,
+  round(length(j) / 3))))
   list(train = D[-i, ], test = D[i, ]) }
 fitl <- function(l, train, hp) fit_any(if (l == "cox_int") "cox_spec" else l, train, REF, hp)
 km <- function(d, t = TSTAR) if (!nrow(d)) NA_real_ else
@@ -32,7 +34,8 @@ km <- function(d, t = TSTAR) if (!nrow(d)) NA_real_ else
 # value of rule d by KM within rule-concordant arms; an empty group (weight p or 1 - p near 0) uses its whole arm
 val <- function(test, d) { p <- mean(d); a1 <- d & test$trt == 1; a0 <- !d & test$trt == 0
   p * km(test[if (any(a1)) a1 else test$trt == 1, ]) + (1 - p) * km(test[if (any(a0)) a0 else test$trt == 0, ]) }
-bins <- function(v, g) cut(v, unique(quantile(v, seq(0, 1, length.out = g + 1))), include.lowest = TRUE, labels = FALSE)
+bins <- function(v, g) cut(v, unique(quantile(v, seq(0, 1, length.out = g + 1))), include.lowest = TRUE,
+                           labels = FALSE)
 
 tune_one <- function(dataset) {
   s <- split3(); y <- Surv(s$test$time, s$test$status)
@@ -58,8 +61,10 @@ score_real <- function(S, bhat, test) {
     benefit_cal_slope = unname(coef(lm(cb[2, ] ~ cb[1, ], weights = cb[3, ]))[2]),
     benefit_spread = cb[2, ncol(cb)] - cb[2, 1], treat_share = mean(bhat > 0),
     policy_gain = val(test, bhat > 0) - max(km(test[test$trt == 1, ]), km(test[test$trt == 0, ])),
-    setNames(cs[1, ], paste0("calS_pred_", seq_len(ncol(cs)))), setNames(cs[2, ], paste0("calS_obs_", seq_len(ncol(cs)))),
-    setNames(cb[1, ], paste0("calB_pred_", seq_len(ncol(cb)))), setNames(cb[2, ], paste0("calB_obs_", seq_len(ncol(cb)))))
+    setNames(cs[1, ], paste0("calS_pred_", seq_len(ncol(cs)))), setNames(cs[2, ], paste0("calS_obs_",
+      seq_len(ncol(cs)))),
+    setNames(cb[1, ], paste0("calB_pred_", seq_len(ncol(cb)))), setNames(cb[2, ], paste0("calB_obs_",
+      seq_len(ncol(cb)))))
 }
 
 eval_one <- function(dataset) {

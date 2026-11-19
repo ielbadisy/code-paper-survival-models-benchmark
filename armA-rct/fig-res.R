@@ -5,33 +5,16 @@
 # Out: results/figures_<tag>/fig{1..5}.{pdf,png}, tab1_core.csv, tab1_full.csv, tab2_core.csv, tab2_full.csv
 # Run from armA-rct/:  Rscript fig-res.R [tag]
 
-suppressMessages({ library(ggplot2); library(patchwork) })
+source("../R/res-utils.R")
 a <- commandArgs(TRUE); TAG <- if (length(a)) a[1] else "v2_90reps"
 IN <- sprintf("results/analysis_%s", TAG); OUT <- sprintf("results/figures_%s", TAG)
 dir.create(OUT, showWarnings = FALSE)
 rd <- function(f) read.csv(file.path(IN, f), stringsAsFactors = FALSE)
 
-COX <- c("coxph", "cox_spec", "glmnet", "coxboost", "rpsurv", "rpsurv_tve")
-LAB <- c(coxph = "Cox PH", cox_spec = "Cox, true form", glmnet = "Ridge/lasso Cox", coxboost = "CoxBoost",
-         rpsurv = "Royston-Parmar", rpsurv_tve = "Royston-Parmar TVE", nbsurv = "Naive Bayes",
-         fastgbm = "GBM (fastgbm)", densemlp = "Neural net (MLP)", bart = "BART", xgboost = "XGBoost",
-         rsf = "Random survival forest", orsf = "Oblique RSF", blackboost = "Tree boosting (mboost)")
-FAM_COL <- c("Regression" = "#2166AC", "Machine learning" = "#D6604D")
-fam <- function(l) factor(ifelse(l %in% COX, "Regression", "Machine learning"), names(FAM_COL))
-lab <- function(l) unname(LAB[l])
-th <- theme_minimal(base_size = 10) +
-  theme(panel.grid.minor = element_blank(), legend.position = "bottom", strip.text = element_text(face = "bold"),
-        plot.title = element_text(face = "bold", size = 11), plot.title.position = "plot")
-save <- function(p, f, w, h) {
-  ggsave(file.path(OUT, paste0(f, ".pdf")), p, width = w, height = h)
-  ggsave(file.path(OUT, paste0(f, ".png")), p, width = w, height = h, dpi = 200, bg = "white")
-}
 
 r <- readRDS(sprintf("results/sim_raw_%s.rds", TAG))
 cell <- c("dataset", "hazard", "beta_trt", "n", "cens", "stress")
-W <- reshape(r[c(cell, "ID", "learner", "metric", "value")], idvar = c(cell, "ID", "learner"),
-             timevar = "metric", direction = "wide")
-names(W) <- sub("^value\\.", "", names(W))
+W <- widen(r, c(cell, "ID", "learner"))
 Z95 <- qnorm(0.975)  # 95% Monte Carlo intervals: estimate +/- Z95 * MCSE
 is_core <- function(d) d$stress == "none" & d$n == 200 & d$cens == 0.3
 # paired difference from Cox PH within replicate: mean and MCSE by `by`
@@ -91,7 +74,8 @@ pc <- prcomp(Z); ve <- pc$sdev^2 / sum(pc$sdev^2)
 write.csv(data.frame(axis = seq_along(ve), var_explained = round(ve, 3)), file.path(OUT, "biplot_variance.csv"),
           row.names = FALSE)
 sc <- data.frame(pc$x[, 1:2], learner = rownames(Z))
-sc$model <- ifelse(sc$learner == "cox_spec", "Cox, true form (oracle)", lab(sc$learner)); sc$family <- fam(sc$learner)
+sc$model <- ifelse(sc$learner == "cox_spec", "Cox, true form (oracle)", lab(sc$learner))
+sc$family <- fam(sc$learner)
 ld <- data.frame(pc$rotation[, 1:2] * max(abs(sc[1:2])) / max(abs(pc$rotation[, 1:2])) * 0.9,
                  metric = ML[rownames(pc$rotation)])
 ld$type <- ifelse(grepl("^benefit|policy", rownames(pc$rotation)), "Benefit", "Prediction")
@@ -111,14 +95,16 @@ f2a <- ggplot() + geom_hline(yintercept = 0, colour = "grey85") + geom_vline(xin
   labs(x = sprintf("Axis 1 (%.0f%%)", 100 * ve[1]), y = sprintf("Axis 2 (%.0f%%)", 100 * ve[2]),
        title = "A. Prediction and benefit measures point in different directions") + th
 pb <- rd("pred_vs_benefit_rank_cor.csv"); pb <- pb[is_core(pb) | pb$stress != "none", ]
-write.csv(aggregate(rho_rmse ~ beta_trt + stress, pb, median), file.path(OUT, "fig2b_medians.csv"), row.names = FALSE)
+write.csv(aggregate(rho_rmse ~ beta_trt + stress, pb, median), file.path(OUT, "fig2b_medians.csv"),
+          row.names = FALSE)
 SC <- c("Log HR 0", "Log HR -0.4", "Log HR 0.8", "Non-linear", "Time-varying", "Dep. censoring")
 pb$scenario <- factor(with(pb, ifelse(stress != "none", c(nle = SC[4], tve = SC[5], censdep = SC[6])[stress],
                                       paste("Log HR", beta_trt))), SC)
 f2b <- ggplot(pb, aes(scenario, rho_rmse)) + geom_hline(yintercept = 0, linewidth = 0.3) +
   stat_summary(fun = median, geom = "crossbar", width = 0.5, linewidth = 0.3, colour = "grey40") +
   geom_point(aes(colour = dataset), position = position_jitter(width = 0.12, seed = 1), size = 1.8) +
-  scale_colour_manual(values = c(pbc = "#1B9E77", prostate = "#7570B3"), labels = c("PBC", "Prostate"), name = NULL) +
+  scale_colour_manual(values = c(pbc = "#1B9E77", prostate = "#7570B3"), labels = c("PBC", "Prostate"),
+                      name = NULL) +
   labs(x = NULL, y = "Spearman rho across the 14 learners\n(prediction rank vs benefit rank, per scenario)",
        title = "B. Agreement is weakest when the average effect is null") +
   th + theme(axis.text.x = element_text(angle = 25, hjust = 1))
@@ -128,21 +114,26 @@ save(f2a + f2b + plot_layout(widths = c(1.5, 1)), "fig2_prediction_vs_benefit", 
 sr <- rd("selection_raw.csv")
 sc <- sr[is_core(sr), ]; gc <- do.call(paste, sc[cell])
 s3 <- aggregate(cbind(rho, mae_loss, ben_loss) ~ by + hazard, sc, mean)
-s3m <- function(v) mapply(function(b, h) { i <- sc$by == b & sc$hazard == h; mcse(sc[[v]][i], gc[i]) }, s3$by, s3$hazard)
+s3m <- function(v) mapply(function(b, h) { i <- sc$by == b & sc$hazard == h; mcse(sc[[v]][i], gc[i]) },
+                          s3$by, s3$hazard)
 s3$rho_mcse <- s3m("rho"); s3$mae_loss_mcse <- s3m("mae_loss")
-s3$metric <- factor(c(ibs = "IBS", harrell_c = "Harrell C", uno_c = "Uno C", dwrange = "Decision-weighted loss")[s3$by],
+s3$metric <- factor(c(ibs = "IBS", harrell_c = "Harrell C", uno_c = "Uno C",
+                      dwrange = "Decision-weighted loss")[s3$by],
                     c("IBS", "Decision-weighted loss", "Uno C", "Harrell C"))
-s3$hazard <- factor(c(dec = "Decreasing", const = "Constant", inc = "Increasing", nph = "Non-PH (crossing)")[s3$hazard],
+s3$hazard <- factor(c(dec = "Decreasing", const = "Constant", inc = "Increasing",
+                      nph = "Non-PH (crossing)")[s3$hazard],
                     c("Decreasing", "Constant", "Increasing", "Non-PH (crossing)"))
 MCOL <- c("IBS" = "#1B7837", "Decision-weighted loss" = "#5AAE61", "Uno C" = "#C2A5CF", "Harrell C" = "#762A83")
 dg <- position_dodge(width = 0.3)
 g3 <- function(y, yl, tt) ggplot(s3, aes(hazard, .data[[y]], colour = metric, group = metric)) +
   geom_line(linewidth = 0.7, position = dg) + geom_point(size = 2.4, position = dg) +
   geom_errorbar(aes(ymin = .data[[y]] - Z95 * .data[[paste0(y, "_mcse")]],
-                    ymax = .data[[y]] + Z95 * .data[[paste0(y, "_mcse")]]), width = 0.2, position = dg) + scale_colour_manual(values = MCOL, name = "Selection metric") +
+                    ymax = .data[[y]] + Z95 * .data[[paste0(y, "_mcse")]]), width = 0.2, position = dg) +
+  scale_colour_manual(values = MCOL, name = "Selection metric") +
   labs(x = "Baseline hazard shape", y = yl, title = tt) + th
 f3 <- g3("rho", "Spearman rho with true accuracy", "A. Does the metric rank learners like the truth?") +
-  g3("mae_loss", "Excess error of the picked learner\nvs the truly best one", "B. Cost of picking by this metric") +
+  g3("mae_loss", "Excess error of the picked learner\nvs the truly best one",
+     "B. Cost of picking by this metric") +
   plot_layout(guides = "collect") & theme(legend.position = "bottom")
 save(f3, "fig3_model_selection", 10, 4.4)
 

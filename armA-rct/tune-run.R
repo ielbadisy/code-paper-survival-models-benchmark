@@ -56,6 +56,7 @@ if (sys.nframe() == 0L) {
   tuned <- list()
   for (i in seq_len(nrow(best))) with(best[i, ],
     tuned[[dataset]][[hazard]][[as.character(n)]][[learner]] <<- HP[[learner]][[config]])
-  saveRDS(list(raw = raw, best = best, hp = HP, versions = pkg_versions()), sprintf("results/tune_raw_%s.rds", tag))
+  saveRDS(list(raw = raw, best = best, hp = HP, versions = pkg_versions()),
+          sprintf("results/tune_raw_%s.rds", tag))
   saveRDS(tuned, sprintf("results/tuned_%s.rds", tag))
 }

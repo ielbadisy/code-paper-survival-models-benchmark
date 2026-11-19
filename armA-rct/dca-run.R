@@ -7,7 +7,8 @@
 source("common.R")
 DELTA <- seq(0, 0.1, 0.01)
 # gain of rule d at each delta, scored with the true benefit b of every test patient
-gain <- function(d, b) sapply(seq_along(DELTA), function(k) mean(d[, k] * (b - DELTA[k])) - max(mean(b) - DELTA[k], 0))
+gain <- function(d, b)
+  sapply(seq_along(DELTA), function(k) mean(d[, k] * (b - DELTA[k])) - max(mean(b) - DELTA[k], 0))
 row <- function(l, v) data.frame(learner = l, metric = sprintf("gain_%02d", round(100 * DELTA)), value = v)
 
 sim_one <- function(dataset, hazard, beta_trt, n, cens, stress, cens_b) {

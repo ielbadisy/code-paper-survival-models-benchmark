@@ -6,7 +6,8 @@
 suppressMessages(library(ggplot2))
 OUT <- "results/figures_v2_90reps"
 COX <- c("coxph", "cox_spec", "glmnet", "coxboost", "rpsurv", "rpsurv_tve")
-LAB <- c(optimal = "Optimal rule (headroom)", coxph = "Cox PH", cox_spec = "Cox, true form", glmnet = "Ridge/lasso Cox",
+LAB <- c(optimal = "Optimal rule (headroom)", coxph = "Cox PH", cox_spec = "Cox, true form",
+         glmnet = "Ridge/lasso Cox",
          bart = "BART", rpsurv_tve = "Royston-Parmar TVE", rsf = "Random survival forest")
 SCOL <- setNames(c("black", "grey30", "#67A9CF", "#2166AC", "#D6604D", "#053061", "#B2182B"), LAB)
 th <- theme_minimal(base_size = 10) +

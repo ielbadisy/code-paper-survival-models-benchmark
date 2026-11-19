@@ -3,34 +3,18 @@
 # In: results/sim_raw_<tag>.rds. Out: results/figures_<tag>/fig{H,N}_*.{pdf,png}
 # Run from armA-rct/:  Rscript fig-extra.R [tag]
 
-suppressMessages({ library(ggplot2); library(patchwork) })
+source("../R/res-utils.R")
 a <- commandArgs(TRUE); TAG <- if (length(a)) a[1] else "v2_90reps"
 OUT <- sprintf("results/figures_%s", TAG)
-COX <- c("coxph", "cox_spec", "glmnet", "coxboost", "rpsurv", "rpsurv_tve")
-LAB <- c(coxph = "Cox PH", cox_spec = "Cox, true form", glmnet = "Ridge/lasso Cox", coxboost = "CoxBoost",
-         rpsurv = "Royston-Parmar", rpsurv_tve = "Royston-Parmar TVE", nbsurv = "Naive Bayes",
-         fastgbm = "GBM (fastgbm)", densemlp = "Neural net (MLP)", bart = "BART", xgboost = "XGBoost",
-         rsf = "Random survival forest", orsf = "Oblique RSF", blackboost = "Tree boosting (mboost)")
-FAM_COL <- c("Regression" = "#2166AC", "Machine learning" = "#D6604D")
 HZ <- c(dec = "Decr.", const = "Const.", inc = "Incr.", nph = "Crossing")
 ST <- c(nle = "Non-linear", tve = "Time-varying", censdep = "Dep. censoring")
-fam <- function(l) factor(ifelse(l %in% COX, "Regression", "Machine learning"), names(FAM_COL))
-lab <- function(l) unname(LAB[l])
-th <- theme_minimal(base_size = 10) +
-  theme(panel.grid.minor = element_blank(), legend.position = "bottom", strip.text = element_text(face = "bold"),
-        plot.title = element_text(face = "bold", size = 11), plot.title.position = "plot")
-save <- function(p, f, w, h) {
-  ggsave(file.path(OUT, paste0(f, ".pdf")), p, width = w, height = h)
-  ggsave(file.path(OUT, paste0(f, ".png")), p, width = w, height = h, dpi = 200, bg = "white")
-}
 
 r <- readRDS(sprintf("results/sim_raw_%s.rds", TAG))
 cell <- c("dataset", "hazard", "beta_trt", "n", "cens", "stress")
 M <- c("mae_true", "ibs", "cindex", "uno_c", "dwrange", "benefit_rmse", "benefit_cindex", "policy_regret")
 r <- r[r$metric %in% M, ]
 cm <- aggregate(value ~ ., r[c(cell, "learner", "metric", "value")], mean)
-cm <- reshape(cm, idvar = c(cell, "learner"), timevar = "metric", direction = "wide")
-names(cm) <- sub("^value\\.", "", names(cm))
+cm <- widen(cm, c(cell, "learner"))
 # within-cell difference from Cox PH
 ref <- cm[cm$learner == "coxph", c(cell, M)]; names(ref)[-(1:6)] <- paste0(M, "_ref")
 cm <- merge(cm, ref, by = cell)

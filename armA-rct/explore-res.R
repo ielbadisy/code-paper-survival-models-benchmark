@@ -2,13 +2,11 @@
 # data-metric vs truth agreement (A3), prediction vs benefit, policy value, true benefit spread.
 # In: results/sim_raw_<tag>.rds, results/design_<tag>.rds. Out: results/analysis_<tag>/*.csv
 # Run from armA-rct/:  Rscript explore-res.R <tag>   (default v2_90reps)
-suppressMessages(library(survival)); source("../R/dgp-rct-stress.R")
+source("../R/dgp.R"); source("../R/res-utils.R")
 a <- commandArgs(TRUE); TAG <- if (length(a)) a[1] else "v2_90reps"
 OUT <- sprintf("results/analysis_%s", TAG); dir.create(OUT, showWarnings = FALSE)
 r <- readRDS(sprintf("results/sim_raw_%s.rds", TAG)); cell <- c("dataset","hazard","beta_trt","n","cens","stress")
-W <- reshape(r[c(cell,"ID","learner","metric","value")], idvar = c(cell,"ID","learner"),
-             timevar = "metric", direction = "wide")
-names(W) <- sub("^value\\.", "", names(W))
+W <- widen(r, c(cell, "ID", "learner"))
 key <- do.call(paste, W[c(cell,"ID")])
 out <- function(x, f) write.csv(x, file.path(OUT, f), row.names = FALSE)
 
@@ -53,8 +51,9 @@ pg <- aggregate(cbind(policy_gain, benefit_cal_slope, cal_slope_true) ~ learner 
 out(pg, "policy_gain_calslope.csv")
 
 # 5. true benefit at t*: spread and share of patients harmed, per dataset x hazard x beta (stress none)
-dz <- readRDS(sprintf("results/design_%s.rds", TAG)); g <- unique(dz$grid[dz$grid$stress == "none" & dz$grid$n == 200,
-                                                               c("dataset","hazard","beta_trt","cens","cens_b")])
+dz <- readRDS(sprintf("results/design_%s.rds", TAG))
+g <- unique(dz$grid[dz$grid$stress == "none" & dz$grid$n == 200,
+                    c("dataset", "hazard", "beta_trt", "cens", "cens_b")])
 REFS <- list(pbc = load_reference("pbc"), prostate = load_reference("prostate"))
 tb <- do.call(rbind, lapply(seq_len(nrow(g)), function(k) with(g[k, ], {
   ref <- REFS[[dataset]]; set.seed(1); X <- ref$X[sample.int(nrow(ref$X), 2e4, TRUE), , drop = FALSE]

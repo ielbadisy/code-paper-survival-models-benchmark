@@ -9,7 +9,7 @@
 #   * truth: Uno C, mean |S_hat - S_true| (grid and t*), calibration slope of
 #     S_true on S_hat at t*
 #   * benefit at t*: RMSE, bias, calibration int/slope, c-for-benefit,
-#     policy regret and gain (R/benefit.R)
+#     policy regret and gain (R/metrics.R)
 # Inputs: common.R, results/tuned_<ttag>.rds
 # Outputs: results/{design,checkpoint,sim_raw}_<tag>.rds (+ sim_raw csv)
 # Run from armA-rct/:
